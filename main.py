@@ -91,44 +91,34 @@ def HessianNone_Fd4(p, u, dx):
     # ---------------------------------------------------------
     # get the coefficients
     # ----------------------
-    ix = p.astype('int')
+    ix = p.astype(np.int64)
     CenteredFiniteDiffCoeff_dia = getNone_Fd4_diagonal(dx)
     CenteredFiniteDiffCoeff_offdia = getNone_Fd4_offdiagonal(dx)
     # ---------------------------------------
     # assemble the 5x5x5 cube and convolve
     # ---------------------------------------
     # diagnoal components
-    component_x = u[:, ix[0] - 2:ix[0] + 3, ix[1], ix[2]]
-    component_y = u[:, ix[0], ix[1] - 2:ix[1] + 3, ix[2]]
-    component_z = u[:, ix[0], ix[1], ix[2] - 2:ix[2] + 3]
-    #     uii = np.inner(CenteredFiniteDiffCoeff_dia,component_x)
-    #     ujj = np.inner(CenteredFiniteDiffCoeff_dia,component_y)
-    #     ukk = np.inner(CenteredFiniteDiffCoeff_dia,component_z)
 
-    uii = np.dot(CenteredFiniteDiffCoeff_dia, component_x.T)
-    ujj = np.dot(CenteredFiniteDiffCoeff_dia, component_y.T)
-    ukk = np.dot(CenteredFiniteDiffCoeff_dia, component_z.T)
+    uii = np.dot(CenteredFiniteDiffCoeff_dia, u[:, ix[0] - 2:ix[0] + 3, ix[1], ix[2]].T)
+    ujj = np.dot(CenteredFiniteDiffCoeff_dia, u[:, ix[0], ix[1] - 2:ix[1] + 3, ix[2]].T)
+    ukk = np.dot(CenteredFiniteDiffCoeff_dia, u[:, ix[0], ix[1], ix[2] - 2:ix[2] + 3].T)
 
-    # off-diagnoal components
-    component_xy = np.array(
+
+    uij = np.dot(CenteredFiniteDiffCoeff_offdia, np.array(
         [u[:, ix[0] + 2, ix[1] + 2, ix[2]], u[:, ix[0] + 2, ix[1] - 2, ix[2]], u[:, ix[0] - 2, ix[1] - 2, ix[2]],
          u[:, ix[0] - 2, ix[1] + 2, ix[2]],
          u[:, ix[0] + 1, ix[1] + 1, ix[2]], u[:, ix[0] + 1, ix[1] - 1, ix[2]], u[:, ix[0] - 1, ix[1] - 1, ix[2]],
-         u[:, ix[0] - 1, ix[1] + 1, ix[2]]])
-    component_xz = np.array(
+         u[:, ix[0] - 1, ix[1] + 1, ix[2]]]))
+    uik = np.dot(CenteredFiniteDiffCoeff_offdia, np.array(
         [u[:, ix[0] + 2, ix[1], ix[2] + 2], u[:, ix[0] + 2, ix[1], ix[2] - 2], u[:, ix[0] - 2, ix[1], ix[2] - 2],
          u[:, ix[0] - 2, ix[1], ix[2] + 2],
          u[:, ix[0] + 1, ix[1], ix[2] + 1], u[:, ix[0] + 1, ix[1], ix[2] - 1], u[:, ix[0] - 1, ix[1], ix[2] - 1],
-         u[:, ix[0] - 1, ix[1], ix[2] + 1]])
-    component_yz = np.array(
+         u[:, ix[0] - 1, ix[1], ix[2] + 1]]))
+    ujk = np.dot(CenteredFiniteDiffCoeff_offdia, np.array(
         [u[:, ix[0], ix[1] + 2, ix[2] + 2], u[:, ix[0], ix[1] + 2, ix[2] - 2], u[:, ix[0], ix[1] - 2, ix[2] - 2],
          u[:, ix[0], ix[1] - 2, ix[2] + 2],
          u[:, ix[0], ix[1] + 1, ix[2] + 1], u[:, ix[0], ix[1] + 1, ix[2] - 1], u[:, ix[0], ix[1] - 1, ix[2] - 1],
-         u[:, ix[0], ix[1] - 1, ix[2] + 1]])
-
-    uij = np.dot(CenteredFiniteDiffCoeff_offdia, component_xy)
-    uik = np.dot(CenteredFiniteDiffCoeff_offdia, component_xz)
-    ujk = np.dot(CenteredFiniteDiffCoeff_offdia, component_yz)
+         u[:, ix[0], ix[1] - 1, ix[2] + 1]]))
     return uii, uij, uik, ujj, ujk, ukk
 
 
