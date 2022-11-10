@@ -119,16 +119,7 @@ def HessianFd4Lag4L(p, uShape0,
     # ---------------------------------------------------------
     # get the coefficients
     # ----------------------
-    ix = p.astype(np.int64)
-    fr = p - ix
-    gx = LW[int(NB * fr[0])]
-    gy = LW[int(NB * fr[1])]
-    gz = LW[int(NB * fr[2])]
-    # ------------------------------------
-    # create the 3D kernel from the
-    # outer product of the 1d kernels
-    # ------------------------------------
-    gk = np.einsum('i,j,k', gx, gy, gz)
+
     # ---------------------------------------
     # assemble the 4x4x4 cube and convolve
     # ---------------------------------------
@@ -154,16 +145,8 @@ def HessianFd4Lag4L(p, uShape0,
                 v_ariel[16*i+4*j+k] = temp[1]
                 w_ariel[16*i+4*j+k] = temp[2]
 
-    # print(uii)
-    uii = np.einsum('ijk,lijk->l', gk, uii)  # dudxx, dvdxx, dwdxx
-    ujj = np.einsum('ijk,lijk->l', gk, ujj)  # dudyy, dvdyy, dwdyy
-    ukk = np.einsum('ijk,lijk->l', gk, ukk)  # dudzz, dvdzz, dwdzz
-
-    uij = np.einsum('ijk,lijk->l', gk, uij)  # dudxy, dvdxy, dwdxy
-    uik = np.einsum('ijk,lijk->l', gk, uik)  # dudxz, dvdxz, dwdxz
-    ujk = np.einsum('ijk,lijk->l', gk, ujk)  # dudyz, dvdyz, dwdyz
-
-    return uii, uij, uik, ujj, ujk, ukk
+    return u_ariel, v_ariel, w_ariel
+    # return uii, uij, uik, ujj, ujk, ukk
 
 
 
@@ -212,10 +195,35 @@ def main_fn():
                              u[:, ix[0], ix[1] - 1, ix[2] - 1],
                              u[:, ix[0], ix[1] - 1, ix[2] + 1]])
             # Hessian.append(HessianFd4Lag4L(p, Bucket, dx, LW_Lag, NB))
-            Hessian.append(HessianFd4Lag4L(p, u.shape[0],
+            u_temp_hessFd4, v_temp_hessFd4, w_temp_hessFd4 = HessianFd4Lag4L(p, u.shape[0],
                                           uii1, ujj1, ukk1,
                                           uij1, uik1, ujk1,
-                                          dx, LW_Lag, NB))
+                                          dx, LW_Lag, NB)
+
+            u_temp_hessFd4 = u_temp_hessFd4.reshape((4,4,4))
+            v_temp_hessFd4 = v_temp_hessFd4.reshape((4, 4, 4))
+            w_temp_hessFd4 = w_temp_hessFd4.reshape((4, 4, 4))
+
+            ix = p.astype(np.int64)
+            fr = p - ix
+            gx = LW_Lag[int(NB * fr[0])]
+            gy = LW_Lag[int(NB * fr[1])]
+            gz = LW_Lag[int(NB * fr[2])]
+            gk = np.einsum('i,j,k', gx, gy, gz)
+
+            uij = np.array([u_temp_hessFd4, v_temp_hessFd4, w_temp_hessFd4])
+
+            # print(uii)
+            # uii = np.einsum('ijk,lijk->l', gk, uii)  # dudxx, dvdxx, dwdxx
+            # ujj = np.einsum('ijk,lijk->l', gk, ujj)  # dudyy, dvdyy, dwdyy
+            # ukk = np.einsum('ijk,lijk->l', gk, ukk)  # dudzz, dvdzz, dwdzz
+
+            uij = np.einsum('ijk,lijk->l', gk, uij)  # dudxy, dvdxy, dwdxy
+            # uik = np.einsum('ijk,lijk->l', gk, uik)  # dudxz, dvdxz, dwdxz
+            # ujk = np.einsum('ijk,lijk->l', gk, ujk)  # dudyz, dvdyz, dwdyz
+
+
+            Hessian.append(uij)
 
         t2 = time.perf_counter()
 
