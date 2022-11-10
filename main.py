@@ -85,45 +85,34 @@ def Lag_looKuptable_4(NB):
 
 
 @profile
-def HessianNone_Fd4(ix, u, CenteredFiniteDiffCoeff_dia, CenteredFiniteDiffCoeff_offdia):
+def HessianNone_Fd4(CenteredFiniteDiffCoeff_dia, CenteredFiniteDiffCoeff_offdia,
+                   uii1,ujj1,ukk1,
+                   uij1, uik1, ujk1):
     # --------------------------------------------------------
-    # p is an np.array(3) containing the three coordinates
+    # ix is an np.array(3) containing the three coordinates
     # ---------------------------------------------------------
-    # get the coefficients
-    # ----------------------
-    # ix = p.astype(np.int64)
-    # CenteredFiniteDiffCoeff_dia = getNone_Fd4_diagonal(dx)
-    # CenteredFiniteDiffCoeff_offdia = getNone_Fd4_offdiagonal(dx)
+
     # ---------------------------------------
     # assemble the 5x5x5 cube and convolve
     # ---------------------------------------
     # diagnoal components
 
-    uii = np.dot(CenteredFiniteDiffCoeff_dia, u[:, ix[0] - 2:ix[0] + 3, ix[1], ix[2]].T)
-    ujj = np.dot(CenteredFiniteDiffCoeff_dia, u[:, ix[0], ix[1] - 2:ix[1] + 3, ix[2]].T)
-    ukk = np.dot(CenteredFiniteDiffCoeff_dia, u[:, ix[0], ix[1], ix[2] - 2:ix[2] + 3].T)
+    # uii =
+    # ujj =
+    # ukk =
 
 
-    uij = np.dot(CenteredFiniteDiffCoeff_offdia, np.array(
-        [u[:, ix[0] + 2, ix[1] + 2, ix[2]], u[:, ix[0] + 2, ix[1] - 2, ix[2]], u[:, ix[0] - 2, ix[1] - 2, ix[2]],
-         u[:, ix[0] - 2, ix[1] + 2, ix[2]],
-         u[:, ix[0] + 1, ix[1] + 1, ix[2]], u[:, ix[0] + 1, ix[1] - 1, ix[2]], u[:, ix[0] - 1, ix[1] - 1, ix[2]],
-         u[:, ix[0] - 1, ix[1] + 1, ix[2]]]))
-    uik = np.dot(CenteredFiniteDiffCoeff_offdia, np.array(
-        [u[:, ix[0] + 2, ix[1], ix[2] + 2], u[:, ix[0] + 2, ix[1], ix[2] - 2], u[:, ix[0] - 2, ix[1], ix[2] - 2],
-         u[:, ix[0] - 2, ix[1], ix[2] + 2],
-         u[:, ix[0] + 1, ix[1], ix[2] + 1], u[:, ix[0] + 1, ix[1], ix[2] - 1], u[:, ix[0] - 1, ix[1], ix[2] - 1],
-         u[:, ix[0] - 1, ix[1], ix[2] + 1]]))
-    ujk = np.dot(CenteredFiniteDiffCoeff_offdia, np.array(
-        [u[:, ix[0], ix[1] + 2, ix[2] + 2], u[:, ix[0], ix[1] + 2, ix[2] - 2], u[:, ix[0], ix[1] - 2, ix[2] - 2],
-         u[:, ix[0], ix[1] - 2, ix[2] + 2],
-         u[:, ix[0], ix[1] + 1, ix[2] + 1], u[:, ix[0], ix[1] + 1, ix[2] - 1], u[:, ix[0], ix[1] - 1, ix[2] - 1],
-         u[:, ix[0], ix[1] - 1, ix[2] + 1]]))
-    return uii, uij, uik, ujj, ujk, ukk
+    # uij =
+    # uik =
+    # ujk =
+    return np.dot(CenteredFiniteDiffCoeff_dia, uii1), np.dot(CenteredFiniteDiffCoeff_offdia, uij1), np.dot(CenteredFiniteDiffCoeff_offdia, uik1), np.dot(CenteredFiniteDiffCoeff_dia, ujj1), np.dot(CenteredFiniteDiffCoeff_offdia, ujk1), np.dot(CenteredFiniteDiffCoeff_dia, ukk1)
 
 
-# @profile
-def HessianFd4Lag4L(p, u, dx, LW, NB):
+@profile
+def HessianFd4Lag4L(p, uShape0,
+                    uii1, ujj1, ukk1,
+                    uij1, uik1, ujk1,
+                    dx, LW, NB):
     # --------------------------------------------------------
     # p is an np.array(3) containing the three coordinates
     # ---------------------------------------------------------
@@ -142,22 +131,23 @@ def HessianFd4Lag4L(p, u, dx, LW, NB):
     # ---------------------------------------
     # assemble the 4x4x4 cube and convolve
     # ---------------------------------------
-    uii = np.zeros((u.shape[0], 4, 4, 4))
-    ujj = np.zeros((u.shape[0], 4, 4, 4))
-    ukk = np.zeros((u.shape[0], 4, 4, 4))
-    uij = np.zeros((u.shape[0], 4, 4, 4))
-    uik = np.zeros((u.shape[0], 4, 4, 4))
-    ujk = np.zeros((u.shape[0], 4, 4, 4))
+    uii = np.zeros((uShape0, 4, 4, 4))
+    ujj = np.zeros((uShape0, 4, 4, 4))
+    ukk = np.zeros((uShape0, 4, 4, 4))
+    uij = np.zeros((uShape0, 4, 4, 4))
+    uik = np.zeros((uShape0, 4, 4, 4))
+    ujk = np.zeros((uShape0, 4, 4, 4))
 
-    CenteredFiniteDiffCoeff_dia = getNone_Fd4_diagonal(dx)
-    CenteredFiniteDiffCoeff_offdia = getNone_Fd4_offdiagonal(dx)
+    CenteredFiniteDiffCoeff_dia = np.array(getNone_Fd4_diagonal(dx))
+    CenteredFiniteDiffCoeff_offdia = np.array(getNone_Fd4_offdiagonal(dx))
 
     for i in range(4):
         for j in range(4):
             for k in range(4):
                 uii[:, i, j, k], uij[:, i, j, k], uik[:, i, j, k], ujj[:, i, j, k], ujk[:, i, j, k], ukk[:, i, j, k]\
-                    = HessianNone_Fd4(np.array([ix[0] - 1 + i, ix[1] - 1 + j, ix[2] - 1 + k], dtype=np.int64), u, CenteredFiniteDiffCoeff_dia, CenteredFiniteDiffCoeff_offdia)
+                    = HessianNone_Fd4(CenteredFiniteDiffCoeff_dia, CenteredFiniteDiffCoeff_offdia, uii1,ujj1,ukk1, uij1, uik1, ujk1)
 
+    # print(uii)
     uii = np.einsum('ijk,lijk->l', gk, uii)  # dudxx, dvdxx, dwdxx
     ujj = np.einsum('ijk,lijk->l', gk, ujj)  # dudyy, dvdyy, dwdyy
     ukk = np.einsum('ijk,lijk->l', gk, ukk)  # dudzz, dvdzz, dwdzz
@@ -168,24 +158,57 @@ def HessianFd4Lag4L(p, u, dx, LW, NB):
 
     return uii, uij, uik, ujj, ujk, ukk
 
-# @profile
+
+
+@profile
 def main_fn():
-    for i in range(5): # repeat the experiment 5x
+    for i in range(1): # repeat the experiment 5x
         dx = 2 * np.pi / 8192
         p = np.array([8, 8, 8])
         NB = 100000  # similar with LaginterpLag8C with NB = 1000000
         LW_Lag = Lag_looKuptable_4(NB)
 
-        npoints = 1000
-        Buckets = []
-        for i in range(npoints):
-            Buckets.append(np.random.uniform(0, 1, size=(3, 16, 16, 16)))
+        npoints = 5000
+        # Buckets = []
+        # for i in range(npoints):
+        #     Buckets.append(np.random.uniform(0, 1, size=(3, 16, 16, 16)))
+
+        Buckets = np.random.uniform(0, 1, size=(npoints, 3, 16, 16, 16))
 
         Hessian = []
 
         t1 = time.perf_counter()
         for Bucket in Buckets:
-            Hessian.append(HessianFd4Lag4L(p, Bucket, dx, LW_Lag, NB))
+            u = Bucket
+            ix = p.astype(np.int64)
+
+            uii1 = np.ascontiguousarray(u[:, ix[0] - 2:ix[0] + 3, ix[1], ix[2]].T)
+            ujj1 = np.ascontiguousarray(u[:, ix[0], ix[1] - 2:ix[1] + 3, ix[2]].T)
+            ukk1 = np.ascontiguousarray(u[:, ix[0], ix[1], ix[2] - 2:ix[2] + 3].T)
+            uij1 = np.array([u[:, ix[0] + 2, ix[1] + 2, ix[2]], u[:, ix[0] + 2, ix[1] - 2, ix[2]],
+                             u[:, ix[0] - 2, ix[1] - 2, ix[2]],
+                             u[:, ix[0] - 2, ix[1] + 2, ix[2]],
+                             u[:, ix[0] + 1, ix[1] + 1, ix[2]], u[:, ix[0] + 1, ix[1] - 1, ix[2]],
+                             u[:, ix[0] - 1, ix[1] - 1, ix[2]],
+                             u[:, ix[0] - 1, ix[1] + 1, ix[2]]])
+            uik1 = np.array(
+                [u[:, ix[0] + 2, ix[1], ix[2] + 2], u[:, ix[0] + 2, ix[1], ix[2] - 2],
+                 u[:, ix[0] - 2, ix[1], ix[2] - 2],
+                 u[:, ix[0] - 2, ix[1], ix[2] + 2],
+                 u[:, ix[0] + 1, ix[1], ix[2] + 1], u[:, ix[0] + 1, ix[1], ix[2] - 1],
+                 u[:, ix[0] - 1, ix[1], ix[2] - 1],
+                 u[:, ix[0] - 1, ix[1], ix[2] + 1]])
+            ujk1 = np.array([u[:, ix[0], ix[1] + 2, ix[2] + 2], u[:, ix[0], ix[1] + 2, ix[2] - 2],
+                             u[:, ix[0], ix[1] - 2, ix[2] - 2],
+                             u[:, ix[0], ix[1] - 2, ix[2] + 2],
+                             u[:, ix[0], ix[1] + 1, ix[2] + 1], u[:, ix[0], ix[1] + 1, ix[2] - 1],
+                             u[:, ix[0], ix[1] - 1, ix[2] - 1],
+                             u[:, ix[0], ix[1] - 1, ix[2] + 1]])
+            # Hessian.append(HessianFd4Lag4L(p, Bucket, dx, LW_Lag, NB))
+            Hessian.append(HessianFd4Lag4L(p, u.shape[0],
+                                          uii1, ujj1, ukk1,
+                                          uij1, uik1, ujk1,
+                                          dx, LW_Lag, NB))
 
         t2 = time.perf_counter()
 
