@@ -105,7 +105,8 @@ def HessianNone_Fd4(CenteredFiniteDiffCoeff_dia, CenteredFiniteDiffCoeff_offdia,
     # uij =
     # uik =
     # ujk =
-    return np.dot(CenteredFiniteDiffCoeff_dia, uii1), np.dot(CenteredFiniteDiffCoeff_offdia, uij1), np.dot(CenteredFiniteDiffCoeff_offdia, uik1), np.dot(CenteredFiniteDiffCoeff_dia, ujj1), np.dot(CenteredFiniteDiffCoeff_offdia, ujk1), np.dot(CenteredFiniteDiffCoeff_dia, ukk1)
+    # return np.dot(CenteredFiniteDiffCoeff_dia, uii1), np.dot(CenteredFiniteDiffCoeff_offdia, uij1), np.dot(CenteredFiniteDiffCoeff_offdia, uik1), np.dot(CenteredFiniteDiffCoeff_dia, ujj1), np.dot(CenteredFiniteDiffCoeff_offdia, ujk1), np.dot(CenteredFiniteDiffCoeff_dia, ukk1)
+    return np.dot(CenteredFiniteDiffCoeff_offdia, uij1)
 
 
 @profile
@@ -141,11 +142,17 @@ def HessianFd4Lag4L(p, uShape0,
     CenteredFiniteDiffCoeff_dia = np.array(getNone_Fd4_diagonal(dx))
     CenteredFiniteDiffCoeff_offdia = np.array(getNone_Fd4_offdiagonal(dx))
 
+    u_ariel = np.zeros((4**3, 1))
+    v_ariel = np.zeros((4**3, 1))
+    w_ariel = np.zeros((4**3, 1))
+
     for i in range(4):
         for j in range(4):
             for k in range(4):
-                uii[:, i, j, k], uij[:, i, j, k], uik[:, i, j, k], ujj[:, i, j, k], ujk[:, i, j, k], ukk[:, i, j, k]\
-                    = HessianNone_Fd4(CenteredFiniteDiffCoeff_dia, CenteredFiniteDiffCoeff_offdia, uii1,ujj1,ukk1, uij1, uik1, ujk1)
+                temp = HessianNone_Fd4(CenteredFiniteDiffCoeff_dia, CenteredFiniteDiffCoeff_offdia, uii1,ujj1,ukk1, uij1, uik1, ujk1)[0]
+                u_ariel[16*i+4*j+k] = temp[0]
+                v_ariel[16*i+4*j+k] = temp[1]
+                w_ariel[16*i+4*j+k] = temp[2]
 
     # print(uii)
     uii = np.einsum('ijk,lijk->l', gk, uii)  # dudxx, dvdxx, dwdxx
