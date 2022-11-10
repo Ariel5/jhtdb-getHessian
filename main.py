@@ -1,7 +1,7 @@
 import numpy as np
 import time
 from line_profiler_pycharm import profile
-from numba import jit
+from numba import jit#, prange
 
 
 ################################################################################
@@ -86,7 +86,7 @@ def Lag_looKuptable_4(NB):
 
 
 # @profile
-@jit(nopython=True)
+@jit(nopython=True, fastmath=True)
 def HessianNone_Fd4(CenteredFiniteDiffCoeff_dia, CenteredFiniteDiffCoeff_offdia,
                    uii1,ujj1,ukk1,
                    uij1, uik1, ujk1):
@@ -108,19 +108,20 @@ def HessianNone_Fd4(CenteredFiniteDiffCoeff_dia, CenteredFiniteDiffCoeff_offdia,
     # uik =
     # ujk =
     # return np.dot(CenteredFiniteDiffCoeff_dia, uii1), np.dot(CenteredFiniteDiffCoeff_offdia, uij1), np.dot(CenteredFiniteDiffCoeff_offdia, uik1), np.dot(CenteredFiniteDiffCoeff_dia, ujj1), np.dot(CenteredFiniteDiffCoeff_offdia, ujk1), np.dot(CenteredFiniteDiffCoeff_dia, ukk1)
-    return np.dot(CenteredFiniteDiffCoeff_offdia, uij1)
+    return np.dot(CenteredFiniteDiffCoeff_offdia, uij1), np.dot(
+        CenteredFiniteDiffCoeff_offdia, uik1), np.dot(CenteredFiniteDiffCoeff_offdia, ujk1)
+    # return np.dot(CenteredFiniteDiffCoeff_offdia, uij1)
 
 
 # @profile
-@jit(nopython=True)
+@jit(nopython=True, fastmath=True, parallel=False)
 def HessianFd4Lag4L(CenteredFiniteDiffCoeff_dia, CenteredFiniteDiffCoeff_offdia,
                     uii1, ujj1, ukk1,
                     uij1, uik1, ujk1):
     # --------------------------------------------------------
-    # p is an np.array(3) containing the three coordinates
-    # ---------------------------------------------------------
-    # get the coefficients
-    # ----------------------
+    # Numba doesn't work with Tensors or np.einsum/inner() etc.
+    # So, we need to flatten them to vectors and use vector Numpy operations
+    # Numba gives 10x+ speedup
 
     # ---------------------------------------
     # assemble the 4x4x4 cube and convolve
@@ -132,24 +133,45 @@ def HessianFd4Lag4L(CenteredFiniteDiffCoeff_dia, CenteredFiniteDiffCoeff_offdia,
     # uik = np.zeros((uShape0, 4, 4, 4))
     # ujk = np.zeros((uShape0, 4, 4, 4))
 
-    u_ariel = np.zeros((4**3, 1))
-    v_ariel = np.zeros((4**3, 1))
-    w_ariel = np.zeros((4**3, 1))
+    uij_flat_uComp = np.zeros((4**3, 1))
+    uij_flat_vComp = np.zeros((4**3, 1))
+    uij_flat_wComp = np.zeros((4**3, 1))
+
+    uik_flat_uComp = np.zeros((4**3, 1))
+    uik_flat_vComp = np.zeros((4**3, 1))
+    uik_flat_wComp = np.zeros((4**3, 1))
+
+    ujk_flat_uComp = np.zeros((4**3, 1))
+    ujk_flat_vComp = np.zeros((4**3, 1))
+    ujk_flat_wComp = np.zeros((4**3, 1))
 
     for i in range(4):
         for j in range(4):
             for k in range(4):
-                temp = HessianNone_Fd4(CenteredFiniteDiffCoeff_dia, CenteredFiniteDiffCoeff_offdia, uii1,ujj1,ukk1, uij1, uik1, ujk1)[0]
-                u_ariel[16*i+4*j+k] = temp[0]
-                v_ariel[16*i+4*j+k] = temp[1]
-                w_ariel[16*i+4*j+k] = temp[2]
+                temp = HessianNone_Fd4(CenteredFiniteDiffCoeff_dia, CenteredFiniteDiffCoeff_offdia, uii1,ujj1,ukk1, uij1, uik1, ujk1)
+                # [0] needed to convert (1x3) to (3,)
+                temp_uij = temp[0][0]
+                temp_uik = temp[1][0]
+                temp_ujk = temp[2][0]
 
-    return u_ariel, v_ariel, w_ariel
+                uij_flat_uComp[16*i+4*j+k] = temp_uij[0]
+                uij_flat_vComp[16*i+4*j+k] = temp_uij[1]
+                uij_flat_wComp[16*i+4*j+k] = temp_uij[2]
+
+                uik_flat_uComp[16*i+4*j+k] = temp_uik[0]
+                uik_flat_vComp[16*i+4*j+k] = temp_uik[1]
+                uik_flat_wComp[16*i+4*j+k] = temp_uik[2]
+
+                ujk_flat_uComp[16*i+4*j+k] = temp_ujk[0]
+                ujk_flat_vComp[16*i+4*j+k] = temp_ujk[1]
+                ujk_flat_wComp[16*i+4*j+k] = temp_ujk[2]
+
+    return uij_flat_uComp, uij_flat_vComp, uij_flat_wComp, uik_flat_uComp, uik_flat_vComp, uik_flat_wComp, ujk_flat_uComp, ujk_flat_vComp, ujk_flat_wComp
     # return uii, uij, uik, ujj, ujk, ukk
 
 
 
-@profile
+# @profile
 def main_fn():
     for i in range(5): # repeat the experiment 5x
         dx = 2 * np.pi / 8192
@@ -198,13 +220,21 @@ def main_fn():
             CenteredFiniteDiffCoeff_dia = np.array(getNone_Fd4_diagonal(dx))
             CenteredFiniteDiffCoeff_offdia = np.array(getNone_Fd4_offdiagonal(dx))
 
-            u_temp_hessFd4, v_temp_hessFd4, w_temp_hessFd4 = HessianFd4Lag4L(CenteredFiniteDiffCoeff_dia, CenteredFiniteDiffCoeff_offdia,
+            uij_uComp, uij_vComp, uij_wComp, uik_uComp, uik_vComp, uik_wComp, ujk_uComp, ujk_vComp, ujk_wComp = HessianFd4Lag4L(CenteredFiniteDiffCoeff_dia, CenteredFiniteDiffCoeff_offdia,
                                           uii1, ujj1, ukk1,
                                           uij1, uik1, ujk1)
 
-            u_temp_hessFd4 = u_temp_hessFd4.reshape((4,4,4))
-            v_temp_hessFd4 = v_temp_hessFd4.reshape((4, 4, 4))
-            w_temp_hessFd4 = w_temp_hessFd4.reshape((4, 4, 4))
+            uij_uComp = uij_uComp.reshape((4,4,4))
+            uij_vComp = uij_vComp.reshape((4, 4, 4))
+            uij_wComp = uij_wComp.reshape((4, 4, 4))
+
+            uik_uComp = uik_uComp.reshape((4,4,4))
+            uik_vComp = uik_vComp.reshape((4, 4, 4))
+            uik_wComp = uik_wComp.reshape((4, 4, 4))
+
+            ujk_uComp = ujk_uComp.reshape((4,4,4))
+            ujk_vComp = ujk_vComp.reshape((4, 4, 4))
+            ujk_wComp = ujk_wComp.reshape((4, 4, 4))
 
             ix = p.astype(np.int64)
             fr = p - ix
@@ -213,7 +243,9 @@ def main_fn():
             gz = LW_Lag[int(NB * fr[2])]
             gk = np.einsum('i,j,k', gx, gy, gz)
 
-            uij = np.array([u_temp_hessFd4, v_temp_hessFd4, w_temp_hessFd4])
+            uij = np.array([uij_uComp, uij_vComp, uij_wComp])
+            uik = np.array([uik_uComp, uik_vComp, uik_wComp])
+            ujk = np.array([ujk_uComp, ujk_vComp, ujk_wComp])
 
             # print(uii)
             # uii = np.einsum('ijk,lijk->l', gk, uii)  # dudxx, dvdxx, dwdxx
@@ -221,8 +253,8 @@ def main_fn():
             # ukk = np.einsum('ijk,lijk->l', gk, ukk)  # dudzz, dvdzz, dwdzz
 
             uij = np.einsum('ijk,lijk->l', gk, uij)  # dudxy, dvdxy, dwdxy
-            # uik = np.einsum('ijk,lijk->l', gk, uik)  # dudxz, dvdxz, dwdxz
-            # ujk = np.einsum('ijk,lijk->l', gk, ujk)  # dudyz, dvdyz, dwdyz
+            uik = np.einsum('ijk,lijk->l', gk, uik)  # dudxz, dvdxz, dwdxz
+            ujk = np.einsum('ijk,lijk->l', gk, ujk)  # dudyz, dvdyz, dwdyz
 
 
             Hessian.append(uij)
